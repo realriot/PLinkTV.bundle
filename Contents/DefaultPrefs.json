@@ -1,0 +1,60 @@
+[
+	{
+		"id":		"update_interval",
+		"label":	"Update interval (minutes)",
+		"type":		"enum",
+		"values":	["1", "5", "10", "15", "30", "45", "60"],
+		"default":	"15"
+	},
+
+	{
+		"id":		"delicious_use",
+		"label":	"Delicious as source",
+		"type":		"bool",
+		"default":	"false"
+	},
+	{
+		"id":		"delicious_username",
+		"label":	"Delicious username",
+		"type":		"text",
+		"default":	""
+	},
+	{
+		"id":		"delicious_password",
+		"label":	"Delicious password",
+		"type":		"text",
+		"default":	""
+	},
+	{
+		"id":		"delicious_client_id",
+		"label":	"Delicious client id",
+		"type":		"text",
+		"default":	""
+	},
+	{
+		"id":		"delicious_client_secret",
+		"label":	"Delicious client secret",
+		"type":		"text",
+		"default":	""
+	},
+
+
+	{
+		"id":		"kippt_use",
+		"label":	"Kippt as source",
+		"type":		"bool",
+		"default":	"false"
+	},
+	{
+		"id":		"kippt_username",
+		"label":	"Kippt username",
+		"type": 	"text",
+		"default": 	""
+	},
+	{
+		"id":		"kippt_apitoken",
+		"label":	"Kippt API-Token",
+		"type":		"text",
+		"default":	""
+	}
+]

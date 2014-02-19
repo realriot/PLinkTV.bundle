@@ -1,0 +1,7 @@
+{
+  "error": "Error",
+  "error_no_config": "Configuration error! Please check the channel settings.",
+  "info": "Information",
+  "info_no_content_found": "No categories or links found.",
+  "preferences": "Settings"
+}
