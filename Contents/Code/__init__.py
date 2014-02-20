@@ -1,6 +1,8 @@
-import simplejson
+import simplejson, datetime
+from mod_helper import *
 from mod_kippt import *
 from mod_delicious import *
+from mod_tmdb import *
 json = simplejson
 
 # Static text. 
@@ -36,14 +38,20 @@ delicious_posts = False
 delicious_updated = False
 delicious_thread = False
 
+# Init TMDb data.
+tmdb_thread = False
+
 ####################################################################################################
 
 def Start():
 	Plugin.AddPrefixHandler(PLUGIN_PREFIX, MainMenu, APP_NAME, LOGO)
+	Plugin.AddViewGroup("List", viewMode="List", mediaType="items")
+	Plugin.AddViewGroup("InfoList", viewMode="InfoList", mediaType="items")
 	HTTP.CacheTime = 1
 
 	Thread.Create(kipptThread, globalize=True)
 	Thread.Create(deliciousThread, globalize=True)
+	Thread.Create(tmdbThread, globalize=True)
 
 ####################################################################################################
 
@@ -92,6 +100,7 @@ def MainMenu():
 def ValidatePrefs():
 	global kippt_thread
 	global delicious_thread
+	global tmdb_thread
 
 	# Handle kippt.
 	if Prefs['kippt_use'] == True:
@@ -108,6 +117,14 @@ def ValidatePrefs():
 	else:
 		if delicious_thread == True:
 			 delicious_thread = False
+
+	# Handle TMDb.
+	if Prefs['tmdb_use'] == True:
+		if tmdb_thread == False:
+			 Thread.Create(tmdbThread, globalize=True)
+	else:
+		if tmdb_thread == True:
+			tmdb_thread = False
 
 def checkConfig():
 	global auth_kippt
@@ -142,7 +159,7 @@ def checkConfig():
 ####################################################################################################
 
 def kipptThread():
-	if debug == True: Log("******  Starting kippt thread  ***********")
+	if debug == True: Log("****** Starting kippt thread ***********")
 	thread_sleep = int(Prefs['update_interval'])*60 
 	global kippt_folders
 	global kippt_lists
@@ -156,9 +173,12 @@ def kipptThread():
 	while (Prefs['kippt_use'] == True and kippt_thread == True):
 		if debug == True: Log.Info("kipptThread() loop...")	
 		try:
-			kippt_folders = getKipptFolders(auth_kippt)
-			kippt_lists = getKipptLists(auth_kippt)
-			kippt_clips = getKipptClips(auth_kippt)
+			kippt_folders_tmp = getKipptFolders(auth_kippt)
+			kippt_lists_tmp = getKipptLists(auth_kippt)
+			kippt_clips_tmp = getKipptClips(auth_kippt)
+			kippt_folders = kippt_folders_tmp
+			kippt_lists = kippt_lists_tmp
+			kippt_clips = kippt_clips_tmp
 			kippt_updated = True
 			if debug_raw == True: Log("Got kippt data:")
 			if debug_raw == True: Log(kippt_folders)
@@ -183,7 +203,7 @@ def kipptThread():
 ####################################################################################################
 
 def deliciousThread():
-	if debug == True: Log("******  Starting Delicious thread  ***********")
+	if debug == True: Log("****** Starting Delicious thread ***********")
 	thread_sleep = int(Prefs['update_interval'])*60
 	global delicious_tags
 	global delicious_posts
@@ -197,8 +217,13 @@ def deliciousThread():
 		if debug == True: Log.Info("deliciousThread() loop...")
 		try:
 			token = getDeliciousToken(Prefs['delicious_username'], Prefs['delicious_password'], Prefs['delicious_client_id'], Prefs['delicious_client_secret'])
-			delicious_tags = getDeliciousTags(token)
-			delicious_posts = getDeliciousPosts(token)
+			delicious_tags_tmp = getDeliciousTags(token)
+			delicious_posts_tmp = getDeliciousPosts(token)
+			delicious_tags = delicious_tags_tmp
+			delicious_posts = delicious_posts_tmp
+			if debug_raw == True: Log("Got Delicious data:")
+                        if debug_raw == True: Log(delicious_tags)
+			if debug_raw == True: Log(delicious_posts)
 			delicious_updated = True
 		except Exception, e:
 			if debug == True: Log("Talking to Delicious api failed: " + str(e))
@@ -213,6 +238,61 @@ def deliciousThread():
 	delicious_tags = False
 	delicious_posts = False
 	delicious_updated = False
+
+####################################################################################################
+
+def tmdbThread():
+	if debug == True: Log("****** Starting TMDb thread ***********")
+	thread_sleep = 60
+	global kippt_clips
+	global delicious_posts
+
+	tmdb_thread = True
+	while (Prefs['tmdb_use'] == True and tmdb_thread == True and Prefs['tmdb_apikey'] != ""):
+		if debug == True: Log.Info("tmdbThread() loop...")
+		try:
+			# Fetch TMdb data for kippt movies.
+			if kippt_clips != False:
+				for clip in kippt_clips['objects']:
+					if hasPlexMovieTag(clip['notes']) == True:
+						if debug == True: Log("Looking up clip at tmdb: " + clip['title'])
+						if clip['url'] in Dict:
+							if debug == True: Log("TMDb data already exists for: " + clip['title'])
+						else:
+							data = tmdbSearchMovie(Prefs['tmdb_apikey'], Prefs['tmdb_language'], clip['title'])
+							if data != False:
+								Dict[clip['url']] = data
+					else:
+						if debug == True: Log("Clip has no tag which results in TMDb lookup.")
+						if clip['url'] in Dict:
+							if debug == True: Log("Deleting TMDb cache for url: " + clip['url'])
+							Dict[clip['url']] = None
+							if debug_raw == True: Log(Dict[clip['url']])
+			
+			# Fetch TMDb data for Delicious movies.
+			if delicious_posts != False:
+				for delicious_post in delicious_posts:
+					if hasPlexMovieTag(delicious_post['extended']) == True:
+						if debug == True: Log("Looking up clip at tmdb: " + delicious_post['description'])
+						if delicious_post['href'] in Dict:
+							if debug == True: Log("TMDb data already exists for: " + delicious_post['description'])
+						else:
+							data = tmdbSearchMovie(Prefs['tmdb_apikey'], Prefs['tmdb_language'], delicious_post['description'])
+							if data != False:
+								Dict[delicious_post['href']] = data
+					else:
+						if debug == True: Log("Clip has no tag which results in TMDb lookup.")
+						if delicious_post['href'] in Dict:
+							if debug == True: Log("Deleting TMDb cache for url: " + delicious_post['href'])
+							Dict[delicious_post['href']] = None
+							if debug_raw == True: Log(Dict[delicious_post['href']])
+		except Exception, e:
+			if debug == True: Log("Talking to tmdb api failed: " + str(e))
+		if debug == True: Log("****** Delicious thread sleeping for " + str(thread_sleep) + " seconds ***********")
+		Thread.Sleep(float(thread_sleep))
+
+	if debug == True: Log("Exiting TMDb thread....")
+	tmdb_thread = False 
 
 ####################################################################################################
 
@@ -248,7 +328,11 @@ def getKipptStructure(mode='folders', ids=None):
 		if debug == True: Log("Called getKipptStructure with mode CLIPS")
 		for clip in kippt_clips['objects']:
 			if clip['list'] == ids:
-				oc.add(createKipptVideoObject(clip))
+				videometadata = { 'url': clip['url'],
+						'title': clip['title'],
+						'summary': clip['notes']
+				}
+				oc.add(createVideoObject(videometadata))
 
 	if mode == 'folders':
 		return objlist
@@ -263,10 +347,11 @@ def getDeliciousStructure(mode='tags', tag=None):
 	# Add folder structure.
 	if mode == 'tags':
 		if debug == True: Log("Called getDeliciousStructure with mode TAGS")
+		Log(delicious_tags)
 		if delicious_tags != False and delicious_posts != False:
 			for delicious_tag in delicious_tags:
 				# Exclude tags as folders.
-				if delicious_tag['tag'] != '!plex':
+				if delicious_tag['tag'] != '!plex' and delicious_tag['tag'] != '!plexmovie':
 					if countDeliciousMediaWithTag(delicious_posts, delicious_tag['tag']) > 0:
 						objlist.append(DirectoryObject(key=Callback(getDeliciousStructure, mode='posts', tag=delicious_tag['tag']), title=delicious_tag['tag']))
 						#oc.add(DirectoryObject(key=Callback(getDeliciousStructure, mode='posts', tag=delicious_tag['tag']), title=delicious_tag['tag']))
@@ -275,7 +360,11 @@ def getDeliciousStructure(mode='tags', tag=None):
 		if debug == True: Log("Called getDeliciousStructure with mode POSTS")
 		for delicious_post in delicious_posts:
 			if checkDeliciousMediaTag(delicious_post, tag):
-				oc.add(createDeliciousVideoObject(delicious_post))
+				videometadata = { 'url': delicious_post['href'],
+						'title': delicious_post['description'],
+						'summary': delicious_post['extended']
+				}
+				oc.add(createVideoObject(videometadata))
 
 	if mode == 'tags':
 		return objlist
@@ -284,50 +373,91 @@ def getDeliciousStructure(mode='tags', tag=None):
 
 ####################################################################################################
 
-def createKipptVideoObject(mediaobject, container = False):
-        if debug == True: Log("Creating kippt videoobject for url: " + mediaobject['url'])
+def createVideoObject(videometadata, container = False):
+	if debug == True: Log("Creating videoobject for url: " + videometadata['url'])
 
-        vco = VideoClipObject(
-                key = Callback(createKipptVideoObject, mediaobject = mediaobject, container = True),
-                rating_key = mediaobject['url'],
-                title = mediaobject['title'],
-                summary = mediaobject['notes'],
-                items = [
-                        MediaObject(
-				container = Container.MP4,
-				video_codec = VideoCodec.H264,
-				audio_codec = AudioCodec.AAC,
-                                parts = [PartObject(key = mediaobject['url'])]
-                        )
-                ]
-        )
-        if container:
-                return ObjectContainer(objects = [vco])
-        else:
-                return vco
-        return vco
-
-####################################################################################################
-
-def createDeliciousVideoObject(mediaobject, container = False):
-	if debug == True: Log("Creating Delicious videoobject for url: " + mediaobject['href'])
-
-	vco = VideoClipObject(
-		key = Callback(createDeliciousVideoObject, mediaobject = mediaobject, container = True),
-		rating_key = mediaobject['href'],
-		title = mediaobject['description'],
-		summary = mediaobject['extended'], 
+	vo = VideoClipObject(
+		key = Callback(createVideoObject, videometadata = videometadata, container = True),
+		rating_key = videometadata['url'],
 		items = [
 			MediaObject(
 				container = Container.MP4,
 				video_codec = VideoCodec.H264,
 				audio_codec = AudioCodec.AAC,
-				parts = [PartObject(key = mediaobject['href'])]
+				parts = [PartObject(key = videometadata['url'])]
 			)
 		]
 	)
-	if container:
-		return ObjectContainer(objects = [vco])
+
+	if videometadata['url'] in Dict and Dict[videometadata['url']] != None:
+		vo = MovieObject(
+			key = Callback(createVideoObject, videometadata = videometadata, container = True),
+			rating_key = videometadata['url'],
+			items = [
+			]
+		)
+		mo = MediaObject(parts = [PartObject(key = videometadata['url'])])
+
+		# Handle media configuration via summary.
+		mediaconfig = getMediaLinkConfig(videometadata['summary'])
+		if mediaconfig != False:
+			if mediaconfig['vcodec'] == 'h264':
+				mo.video_codec = VideoCodec.H264
+
+			if mediaconfig['acodec'] == 'aac':
+				mo.audio_codec = AudioCodec.AAC
+			elif mediaconfig['acodec'] == 'mp3':
+				mo.audio_codec = AudioCodec.MP3
+			else:
+				mo.audio_codec = AudioCodec.AAC
+
+			if mediaconfig['container'] == 'mp4':
+				mo.container = Container.MP4
+			elif mediaconfig['container'] == 'mkv':
+				mo.container = Container.MKV
+			elif mediaconfig['container'] == 'mov':
+				mo.container = Container.MOV
+			elif mediaconfig['container'] == 'avi':
+				mo.container = Container.AVI
+			else:
+				mo.container = Container.MP4
+		else:
+			mo.container = Container.MP4
+			mo.video_codec = VideoCodec.H264
+			mo.audio_codec = AudioCodec.AAC
+	
+		vo.items.append(mo)
+	
+		tmdbdata = Dict[videometadata['url']]
+		# Prepare genres.
+		genres = []
+		for genre in tmdbdata['genres']:
+			genres.append(genre['name'])
+
+		# Prepare production countries.
+		countries = []
+		for country in tmdbdata['production_countries']:
+			countries.append(country['name'])
+
+		vo.thumb = "http://image.tmdb.org/t/p/w342" + tmdbdata['poster_path']
+		vo.art = "http://image.tmdb.org/t/p/w500" + tmdbdata['backdrop_path']
+		vo.title = tmdbdata['title']
+		vo.tagline = tmdbdata['tagline']
+		vo.summary = tmdbdata['overview']
+		vo.duration = int(tmdbdata['runtime'])*60000
+		vo.rating = float(tmdbdata['vote_average'])
+		vo.genres = tmdbdata['genres'] 
+		vo.original_title = tmdbdata['original_title']
+		vo.year = datetime.datetime.strptime(tmdbdata['release_date'], '%Y-%m-%d').year
+		vo.originally_available_at = datetime.datetime.strptime(tmdbdata['release_date'], '%Y-%m-%d') 
+		vo.countries = countries
+ 
 	else:
-		return vco
-	return vco
+		vo.title = videometadata['title']
+		vo.summary = re.sub('\$plex\[.*\]', '', videometadata['summary'])
+
+        if container:
+                return ObjectContainer(objects = [vo])
+        else:
+                return vo
+        return vo

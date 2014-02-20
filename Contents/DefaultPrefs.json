@@ -56,5 +56,25 @@
 		"label":	"Kippt API-Token",
 		"type":		"text",
 		"default":	""
+	},
+
+	{
+		"id":		"tmdb_use",
+		"label":	"TMDb agent",
+		"type":		"bool",
+		"default":	"false"
+	},
+	{
+		"id":		"tmdb_language",
+		"label":	"Language",
+		"type":		"enum",
+		"values":	["en", "de", "fr", "es", "se"],
+		"default":	"en"
+	},
+	{
+		"id":		"tmdb_apikey",
+		"label":	"TMDb API-Key",
+		"type":		"text",
+		"default":	""
 	}
 ]
