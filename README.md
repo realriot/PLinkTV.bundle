@@ -28,7 +28,8 @@ lines you can add a special configuration string which will be handled by this c
 a whole line for this string so the channel can filter it out afterwards.
 
 Syntax: $plex[-media type-,-video codec-,-audio codec-,-container type-]
-For example: $plex[movie,h264,aac,mp4]
+
+Example: $plex[movie,h264,aac,mp4]
 
 The following values can be used. Everything else will be ignored:
 
