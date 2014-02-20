@@ -27,24 +27,24 @@ You can enter "notes" at kippt.com and "comments" at delicious.com for each clip
 lines you can add a special configuration string which will be handled by this channel. Please sponsor
 a whole line for this string so the channel can filter it out afterwards.
 
-Syntax: $plex[<media type>,<video codec>,<audio codec>,<container type>]
+Syntax: $plex[_media type_,_video codec_,_audio codec_,_container type_]
 For example: $plex[movie,h264,aac,mp4]
 
 The following values can be used. Everything else will be ignored:
-<media type>
+_media type_
    movie
    tvseries
    clip
 
-<video codec>
+_video codec_
    h264
 
-<audio codec>
+_audio codec_
    aac
    mp3
    ac3
 
-<container type>
+_container type_
    mp4
    mkv
    mov
